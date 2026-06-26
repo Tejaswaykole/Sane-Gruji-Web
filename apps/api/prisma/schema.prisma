@@ -60,6 +60,8 @@ model User {
   teacherProfile     Teacher?
   markedAttendances  Attendance[]
   enteredMarks       Mark[]
+  notices            Notice[]
+  assignedInquiries  AdmissionInquiry[]
 
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
@@ -147,6 +149,7 @@ model Student {
   documents      StudentDocument[]
   attendances    Attendance[]
   marks          Mark[]
+  fees           Fee[]
 
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
@@ -347,4 +350,81 @@ model Mark {
   updatedAt      DateTime       @updatedAt
 
   @@unique([exam_id, student_id, subject_id])
+}
+
+enum NoticeStatus {
+  DRAFT
+  PUBLISHED
+  EXPIRED
+  ARCHIVED
+}
+
+model Notice {
+  id             String         @id @default(cuid())
+  title          String
+  content        String         @db.Text
+  category       String
+  target_roles   String[]
+  target_classes String[]
+  attachment_url String?
+  publish_date   DateTime?
+  expiry_date    DateTime?
+  status         NoticeStatus   @default(DRAFT)
+  
+  created_by     String
+  creator        User           @relation(fields: [created_by], references: [id])
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+enum InquiryStatus {
+  NEW
+  CONTACTED
+  INTERESTED
+  NOT_INTERESTED
+  ADMISSION_COMPLETED
+  CLOSED
+}
+
+model AdmissionInquiry {
+  id             String         @id @default(cuid())
+  student_name   String
+  parent_name    String
+  phone          String
+  email          String
+  grade_applying String
+  message        String?        @db.Text
+  source         String?
+  status         InquiryStatus  @default(NEW)
+  remarks        String?        @db.Text
+  
+  assigned_to    String?
+  assignee       User?          @relation(fields: [assigned_to], references: [id])
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+enum FeeStatus {
+  PENDING
+  OVERDUE
+  CLEARED
+  WAIVED
+}
+
+model Fee {
+  id             String         @id @default(cuid())
+  academic_year  String
+  fee_type       String
+  amount         Float
+  due_date       DateTime
+  status         FeeStatus      @default(PENDING)
+  remarks        String?        @db.Text
+  
+  student_id     String
+  student        Student        @relation(fields: [student_id], references: [id])
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 }

@@ -76,7 +76,7 @@ export default function StudentProfilePage() {
       </div>
 
       <div className="border-b flex gap-8">
-        {['overview', 'academic', 'parent', 'documents', 'attendance'].map(t => (
+        {['overview', 'academic', 'parent', 'documents', 'attendance', 'fees'].map(t => (
           <button 
             key={t}
             className={`py-4 border-b-2 font-medium transition-colors capitalize ${tab === t ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'}`} 
@@ -145,6 +145,10 @@ export default function StudentProfilePage() {
         {tab === 'attendance' && (
           <StudentAttendanceTab studentId={id as string} />
         )}
+
+        {tab === 'fees' && (
+          <StudentFeeTab studentId={id as string} />
+        )}
       </div>
     </div>
   );
@@ -196,6 +200,65 @@ function StudentAttendanceTab({ studentId }: { studentId: string }) {
                         r.status === 'ABSENT' ? 'bg-red-100 text-red-700' : 
                         'bg-yellow-100 text-yellow-700'}`}>
                       {r.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+    </div>
+  );
+}
+
+function StudentFeeTab({ studentId }: { studentId: string }) {
+  const [fees, setFees] = useState<any[]>([]);
+  const { accessToken } = useAuthStore();
+
+  useEffect(() => {
+    if (accessToken) {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/fees?student_id=${studentId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      })
+      .then(res => res.json())
+      .then(data => { if (data.data) setFees(data.data); })
+      .catch(console.error);
+    }
+  }, [accessToken, studentId]);
+
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-bold text-slate-900">Fee Records</h3>
+      {fees.length === 0 ? (
+        <p className="text-slate-500">No fee records found for this student.</p>
+      ) : (
+        <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-medium">
+              <tr>
+                <th className="px-6 py-4">Academic Year</th>
+                <th className="px-6 py-4">Fee Type</th>
+                <th className="px-6 py-4">Amount</th>
+                <th className="px-6 py-4">Due Date</th>
+                <th className="px-6 py-4">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {fees.map((f: any) => (
+                <tr key={f.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-6 py-4 text-slate-800">{f.academic_year}</td>
+                  <td className="px-6 py-4 text-slate-800">{f.fee_type}</td>
+                  <td className="px-6 py-4 font-bold">${f.amount.toFixed(2)}</td>
+                  <td className="px-6 py-4">{new Date(f.due_date).toLocaleDateString()}</td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2 py-1 rounded text-xs font-bold 
+                      ${f.status === 'CLEARED' ? 'bg-green-100 text-green-700' : 
+                        f.status === 'OVERDUE' ? 'bg-red-100 text-red-700' : 
+                        f.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' : 
+                        'bg-slate-100 text-slate-700'}`}>
+                      {f.status}
                     </span>
                   </td>
                 </tr>
