@@ -59,6 +59,7 @@ model User {
   classesAsTeacher   Class[]    @relation("ClassTeacher")
   teacherProfile     Teacher?
   markedAttendances  Attendance[]
+  enteredMarks       Mark[]
 
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
@@ -95,6 +96,7 @@ model Class {
   teachers         TeacherClass[]
   attendances      Attendance[]
   homeworks        Homework[]
+  examSchedules    ExamSchedule[]
   
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -144,6 +146,7 @@ model Student {
   status         StudentStatus     @default(ACTIVE)
   documents      StudentDocument[]
   attendances    Attendance[]
+  marks          Mark[]
 
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
@@ -202,6 +205,8 @@ model Subject {
   
   teachers    TeacherSubject[]
   homeworks   Homework[]
+  examSchedules ExamSchedule[]
+  marks       Mark[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -278,4 +283,68 @@ model Homework {
 
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
+}
+
+enum ExamStatus {
+  DRAFT
+  PUBLISHED
+  COMPLETED
+}
+
+model Exam {
+  id             String         @id @default(cuid())
+  name           String
+  exam_type      String
+  academic_year  String
+  start_date     DateTime
+  end_date       DateTime
+  status         ExamStatus     @default(DRAFT)
+  
+  schedules      ExamSchedule[]
+  marks          Mark[]
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model ExamSchedule {
+  id             String         @id @default(cuid())
+  exam_id        String
+  subject_id     String
+  class_id       String
+  exam_date      DateTime
+  start_time     String
+  end_time       String
+  room           String?
+  
+  exam           Exam           @relation(fields: [exam_id], references: [id], onDelete: Cascade)
+  subject        Subject        @relation(fields: [subject_id], references: [id])
+  class          Class          @relation(fields: [class_id], references: [id])
+  
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([exam_id, subject_id, class_id])
+}
+
+model Mark {
+  id             String         @id @default(cuid())
+  exam_id        String
+  student_id     String
+  subject_id     String
+  marks_obtained Float
+  total_marks    Float
+  grade          String?
+  remarks        String?
+  entered_by     String         // teacher_id or user_id of the person who entered the marks
+  
+  exam           Exam           @relation(fields: [exam_id], references: [id], onDelete: Cascade)
+  student        Student        @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  subject        Subject        @relation(fields: [subject_id], references: [id])
+  marker         User           @relation(fields: [entered_by], references: [id])
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([exam_id, student_id, subject_id])
 }
