@@ -4,22 +4,278 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
-// User role enum for RBAC later
-enum Role {
-  ADMIN
-  TEACHER
-  STUDENT
-  PARENT
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  name        String           @unique
+  description String?
+  users       User[]
+  permissions RolePermission[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  name        String           @unique // e.g. "users.view"
+  description String?
+  roles       RolePermission[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  role      Role     @default(STUDENT)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String     @id @default(cuid())
+  employee_id   String?    @unique
+  first_name    String
+  last_name     String
+  email         String     @unique
+  phone         String?
+  avatar        String?
+  password_hash String
+  roleId        String
+  role          Role       @relation(fields: [roleId], references: [id])
+  status        UserStatus @default(ACTIVE)
+  last_login    DateTime?
+  
+  auditLogsPerformed AuditLog[] @relation("PerformedBy")
+  auditLogsTargeted  AuditLog[] @relation("TargetUser")
+  classesAsTeacher   Class[]    @relation("ClassTeacher")
+  teacherProfile     Teacher?
+  markedAttendances  Attendance[]
+
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  deletedAt     DateTime?  // For soft delete
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  action       String   // e.g. "USER_CREATED", "STATUS_CHANGED"
+  performed_by String?
+  target_user  String?
+  details      Json?
+  
+  performer    User?    @relation("PerformedBy", fields: [performed_by], references: [id], onDelete: SetNull)
+  target       User?    @relation("TargetUser", fields: [target_user], references: [id], onDelete: SetNull)
+
+  timestamp    DateTime @default(now())
+}
+
+enum StudentStatus {
+  ACTIVE
+  INACTIVE
+  GRADUATED
+  TRANSFERRED
+}
+
+model Class {
+  id               String    @id @default(cuid())
+  class_name       String
+  section          String
+  class_teacher_id String?
+  class_teacher    User?     @relation("ClassTeacher", fields: [class_teacher_id], references: [id])
+  students         Student[]
+  teachers         TeacherClass[]
+  attendances      Attendance[]
+  homeworks        Homework[]
+  
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([class_name, section])
+}
+
+model Parent {
+  id              String    @id @default(cuid())
+  father_name     String?
+  mother_name     String?
+  guardian_name   String?
+  phone           String
+  alternate_phone String?
+  email           String?
+  occupation      String?
+  address         String?
+  students        Student[]
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model Student {
+  id             String            @id @default(cuid())
+  admission_no   String            @unique
+  first_name     String
+  last_name      String
+  gender         String
+  dob            DateTime
+  blood_group    String?
+  phone          String?
+  email          String?
+  address        String?
+  city           String?
+  state          String?
+  pincode        String?
+  photo          String?
+  admission_date DateTime
+  
+  class_id       String
+  class          Class             @relation(fields: [class_id], references: [id])
+  
+  parent_id      String
+  parent         Parent            @relation(fields: [parent_id], references: [id])
+
+  status         StudentStatus     @default(ACTIVE)
+  documents      StudentDocument[]
+  attendances    Attendance[]
+
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+}
+
+model StudentDocument {
+  id            String   @id @default(cuid())
+  student_id    String
+  student       Student  @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  document_type String
+  file_url      String
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+enum TeacherStatus {
+  ACTIVE
+  INACTIVE
+  RESIGNED
+}
+
+model Teacher {
+  id            String    @id @default(cuid())
+  employee_id   String    @unique
+  first_name    String
+  last_name     String
+  gender        String
+  dob           DateTime
+  phone         String
+  email         String    @unique
+  address       String?
+  qualification String?
+  experience    Int?
+  joining_date  DateTime
+  photo         String?
+  status        TeacherStatus @default(ACTIVE)
+  
+  user_id       String?   @unique
+  user          User?     @relation(fields: [user_id], references: [id])
+  
+  subjects      TeacherSubject[]
+  classes       TeacherClass[]
+  homeworks     Homework[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Subject {
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique
+  description String?
+  status      String   @default("ACTIVE")
+  
+  teachers    TeacherSubject[]
+  homeworks   Homework[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model TeacherSubject {
+  teacher_id String
+  subject_id String
+  
+  teacher    Teacher @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  subject    Subject @relation(fields: [subject_id], references: [id], onDelete: Cascade)
+
+  @@id([teacher_id, subject_id])
+}
+
+model TeacherClass {
+  teacher_id String
+  class_id   String
+  
+  teacher    Teacher @relation(fields: [teacher_id], references: [id], onDelete: Cascade)
+  class      Class   @relation(fields: [class_id], references: [id], onDelete: Cascade)
+
+  @@id([teacher_id, class_id])
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  LEAVE
+}
+
+model Attendance {
+  id              String   @id @default(cuid())
+  student_id      String
+  class_id        String
+  attendance_date DateTime @db.Date
+  status          AttendanceStatus
+  remarks         String?
+  marked_by       String
+  
+  student         Student  @relation(fields: [student_id], references: [id])
+  class           Class    @relation(fields: [class_id], references: [id])
+  marker          User     @relation(fields: [marked_by], references: [id])
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@unique([student_id, attendance_date])
+}
+
+enum HomeworkStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+model Homework {
+  id             String         @id @default(cuid())
+  title          String
+  description    String
+  due_date       DateTime
+  attachment_url String?
+  status         HomeworkStatus @default(DRAFT)
+  
+  class_id       String
+  class          Class          @relation(fields: [class_id], references: [id])
+  
+  subject_id     String
+  subject        Subject        @relation(fields: [subject_id], references: [id])
+  
+  teacher_id     String
+  teacher        Teacher        @relation(fields: [teacher_id], references: [id])
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 }
